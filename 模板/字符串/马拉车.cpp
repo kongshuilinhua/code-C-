@@ -1,0 +1,78 @@
+//
+// Created by elysia on 2025/5/15.
+//
+// 求区间回文串个数。数字版本
+int countSubstrings(vi &s)
+{
+    int n = s.size();
+    if (n == 0)
+        return 0;
+
+    const int X = 1e9 + 7;
+    const int Y = 1e9 + 9;
+    const int SEP = 2000000005;
+
+    vector<int> t;
+    t.reserve(2 * n + 5);
+    t.push_back(X);
+    t.push_back(SEP);
+    for (int v : s)
+    {
+        t.push_back(v);
+        t.push_back(SEP);
+    }
+    t.push_back(Y);
+
+    int m = t.size();
+    vector<int> f(m);
+    int iMax = 0, rMax = 0;
+    long long ans = 0;
+
+    for (int i = 1; i < m - 1; ++i)
+    {
+        f[i] = (i <= rMax
+                ? min(rMax - i + 1, f[2 * iMax - i])
+                : 1);
+        while (i - f[i] >= 0 && i + f[i] < m && t[i - f[i]] == t[i + f[i]])
+            ++f[i];
+        if (i + f[i] - 1 > rMax)
+        {
+            iMax = i;
+            rMax = i + f[i] - 1;
+        }
+        ans += f[i] / 2;
+    }
+    return ans;
+}
+
+// https://leetcode.cn/problems/a7VOhD/solutions/1021794/hui-wen-zi-zi-fu-chuan-de-ge-shu-by-leet-ejfv/
+// 字符串版
+int countSubstrings(string s)
+{
+    int n = s.size();
+    string t = "$#";
+    for (const char &c: s) {
+        t += c;
+        t += '#';
+    }
+    n = t.size();
+    t += '!';
+
+    auto f = vector <int> (n);
+    int iMax = 0, rMax = 0, ans = 0;
+    for (int i = 1; i < n; ++i) {
+        // 初始化 f[i]
+        f[i] = (i <= rMax) ? min(rMax - i + 1, f[2 * iMax - i]) : 1;
+        // 中心拓展
+        while (t[i + f[i]] == t[i - f[i]]) ++f[i];
+        // 动态维护 iMax 和 rMax
+        if (i + f[i] - 1 > rMax) {
+            iMax = i;
+            rMax = i + f[i] - 1;
+        }
+        // 统计答案, 当前贡献为 (f[i] - 1) / 2 上取整
+        ans += (f[i] / 2);
+    }
+
+    return ans;
+}

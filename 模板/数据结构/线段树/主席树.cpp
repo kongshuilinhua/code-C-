@@ -1,0 +1,216 @@
+// https://www.luogu.com.cn/problem/P3834
+#include <bits/stdc++.h>
+using namespace std;
+constexpr int N = 2e5 + 5;
+#define mid (l + r) / 2
+int n, m, root;
+int a[N], b[N], T[N];
+int sum[N << 5], L[N << 5], R[N << 5];
+
+// 建立一课空树
+int build(int l, int r)
+{
+    int rt = ++root;
+    if (l == r)
+        return rt;
+    L[rt] = build(l, mid);
+    R[rt] = build(mid + 1, r);
+    // 返回该子树的根节点
+    return rt;
+}
+
+// rt 为当前版本，pre 为上一个版本，l 和 r 为当前区间，x 为要插入的数
+int update(int pre, int l, int r, int x)
+{
+    int rt = ++root;
+    L[rt] = L[pre];
+    R[rt] = R[pre];
+    sum[rt] = sum[pre] + 1;
+    if (l == r)
+        return rt;
+    if (x <= mid)
+        L[rt] = update(L[pre], l, mid, x);
+    else
+        R[rt] = update(R[pre], mid + 1, r, x);
+    return rt;
+}
+
+int query(int u, int v, int l, int r, int k)
+{
+    if (l == r)
+        return l;
+    int x = sum[L[v]] - sum[L[u]]; // 通过区间减法得到左儿子中所存储的数值个数
+    // 若 k 小于等于 x ，则说明第 k 小的数字存储在在左儿子中
+    if (k <= x)
+        return query(L[u], L[v], l, mid, k);
+    else
+        return query(R[u], R[v], mid + 1, r, k - x); // 否则说明在右儿子中
+}
+
+class ChairmanTree
+{
+public:
+    const static int N = 2e5 + 7;
+
+    int b[N], len;
+
+    struct Seg_Tree
+    {
+        int lc, rc, sum;
+    } T[N << 5];
+
+    int cnt, rot[N];
+
+    void insert(int last, int &i, int l, int r, int k)
+    {
+        T[i = ++cnt] = T[last];
+        T[i].sum++;
+        if (l == r)
+            return;
+        int mid = (l + r) >> 1;
+        if (k <= mid)
+            insert(T[last].lc, T[i].lc, l, mid, k);
+        else
+            insert(T[last].rc, T[i].rc, mid + 1, r, k);
+    }
+
+    void build(int *be, int *ed)
+    {
+        for (int *i = be; i != ed; i++)
+            b[++len] = *i;
+        sort(b + 1, b + len + 1);
+        len = unique(b + 1, b + len + 1) - b - 1;
+        for (int *i = be, j = 1; i != ed; i++, j++)
+        {
+            int t = lower_bound(b + 1, b + 1 + len, *i) - b;
+            insert(rot[j - 1], rot[j], 1, len, t);
+        }
+    }
+
+    int ask(int x, int y, int l, int r, int k)
+    {
+        if (l == r)
+            return b[l];
+        int mid = (l + r) >> 1;
+        int sum = T[T[y].lc].sum - T[T[x].lc].sum;
+        if (k <= sum)
+            return ask(T[x].lc, T[y].lc, l, mid, k);
+        return ask(T[x].rc, T[y].rc, mid + 1, r, k - sum);
+    }
+
+    int ask(int l, int r, int k) { return ask(rot[l - 1], rot[r], 1, len, k); }
+};
+
+int main()
+{
+    ios::sync_with_stdio(false);
+    cin.tie(0);
+    cin >> n >> m;
+    for (int i = 1; i <= n; i++)
+        cin >> a[i], b[i] = a[i];
+    sort(b + 1, b + 1 + n);
+    int len = unique(b + 1, b + n + 1) - b - 1; // 离散化后的数组长度
+    T[0] = build(1, len);
+    for (int i = 1; i <= n; i++)
+    {
+        int t = lower_bound(b + 1, b + 1 + len, a[i]) - b;
+        T[i] = update(T[i - 1], 1, len, t);
+    }
+    for (int i = 0; i < m; i++)
+    {
+        int l, r, k;
+        cin >> l >> r >> k;
+        int res = query(T[l - 1], T[r], 1, len, k);
+        cout << b[res] << "\n";
+    }
+    return 0;
+}
+
+// https://codeforces.com/gym/102770
+// 前K大的和
+#include <bits/stdc++.h>
+using namespace std;
+using ll = long long;
+const int maxn = 1e5 + 10;
+int a[maxn], b[maxn];
+int T[maxn], c[maxn * 30], lson[maxn * 30], rson[maxn * 30];
+ll sum[maxn * 30], f[maxn];
+int tot, t, r, l, k, n, m, q;
+
+int build(int l, int r)
+{
+    int rt = tot++;
+    sum[rt] = 0;
+    c[rt] = 0;
+    if (l != r)
+    {
+        int mid = (l + r) >> 1;
+        lson[rt] = build(l, mid);
+        rson[rt] = build(mid + 1, r);
+    }
+    return rt;
+}
+
+int update(int pre, int l, int r, int pos, int val)
+{
+    int rt = tot++;
+    lson[rt] = lson[pre];
+    rson[rt] = rson[pre];
+    c[rt] = c[pre] + val;
+    sum[rt] = sum[pre] + b[pos];
+    if (l != r)
+    {
+        int mid = (l + r) >> 1;
+        if (pos <= mid)
+            lson[rt] = update(lson[pre], l, mid, pos, val);
+        else
+            rson[rt] = update(rson[pre], mid + 1, r, pos, val);
+    }
+    return rt;
+}
+
+ll query(int lr, int rr, int l, int r, int k)
+{
+    if (l == r)
+        return b[l] * k;
+    int rsum = c[rson[rr]] - c[rson[lr]];
+    int mid = (l + r) >> 1;
+    if (rsum >= k)
+        return query(rson[lr], rson[rr], mid + 1, r, k);
+    else
+        return sum[rson[rr]] - sum[rson[lr]] + query(lson[lr], lson[rr], l, mid, k - rsum);
+}
+
+int main()
+{
+    ios::sync_with_stdio(false), cin.tie(0);
+    for (int i = 1; i <= 100000; ++i)
+        f[i] = (ll)i * i + f[i - 1];
+    cin >> t;
+    while (t--)
+    {
+        tot = 0;
+        cin >> n;
+        for (int i = 1; i <= n; ++i)
+        {
+            cin >> a[i];
+            b[i] = a[i];
+        }
+        sort(b + 1, b + 1 + n);
+        m = unique(b + 1, b + 1 + n) - b - 1;
+        T[0] = build(1, m);
+        for (int i = 1; i <= n; ++i)
+        {
+            int pos = lower_bound(b + 1, b + 1 + m, a[i]) - b;
+            T[i] = update(T[i - 1], 1, m, pos, 1);
+        }
+        cin >> q;
+        while (q--)
+        {
+            cin >> l >> r >> k;
+            cout << (query(T[l - 1], T[r], 1, m, k) + f[r - l + 1]) << "\n";
+        }
+    }
+    return 0;
+}
+
