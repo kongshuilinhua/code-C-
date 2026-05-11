@@ -1,51 +1,127 @@
 // https://www.luogu.com.cn/problem/P3834
-#include <bits/stdc++.h>
-using namespace std;
-constexpr int N = 2e5 + 5;
-#define mid (l + r) / 2
-int n, m, root;
-int a[N], b[N], T[N];
-int sum[N << 5], L[N << 5], R[N << 5];
 
-// 建立一课空树
-int build(int l, int r)
+struct PersistentSegTree
 {
-    int rt = ++root;
-    if (l == r)
-        return rt;
-    L[rt] = build(l, mid);
-    R[rt] = build(mid + 1, r);
-    // 返回该子树的根节点
-    return rt;
-}
+    struct X
+    {
+        int32_t l, r, cnt;
+        long long sum;
+    };
 
-// rt 为当前版本，pre 为上一个版本，l 和 r 为当前区间，x 为要插入的数
-int update(int pre, int l, int r, int x)
-{
-    int rt = ++root;
-    L[rt] = L[pre];
-    R[rt] = R[pre];
-    sum[rt] = sum[pre] + 1;
-    if (l == r)
-        return rt;
-    if (x <= mid)
-        L[rt] = update(L[pre], l, mid, x);
-    else
-        R[rt] = update(R[pre], mid + 1, r, x);
-    return rt;
-}
+    vector<X> tree;
+    vector<int> root;
+    int32_t cnt;
+    vector<int> vals; // 离散化后的数据
+    int m;
 
-int query(int u, int v, int l, int r, int k)
-{
-    if (l == r)
-        return l;
-    int x = sum[L[v]] - sum[L[u]]; // 通过区间减法得到左儿子中所存储的数值个数
-    // 若 k 小于等于 x ，则说明第 k 小的数字存储在在左儿子中
-    if (k <= x)
-        return query(L[u], L[v], l, mid, k);
-    else
-        return query(R[u], R[v], mid + 1, r, k - x); // 否则说明在右儿子中
-}
+    PersistentSegTree(const vector<int> &a)
+    {
+        cnt = 0;
+        int n = a.size();
+
+        tree.resize(n << 5);
+        root.resize(n);
+
+        // 2. 离散化 (a[0] 不处理，从 a[1] 开始)
+        vals.assign(a.begin() + 1, a.end());
+        sort(vals.begin(), vals.end());
+        vals.erase(unique(vals.begin(), vals.end()), vals.end());
+        m = vals.size();
+
+        root[0] = build(1, m);
+
+        for (int i = 1; i < n; ++i)
+        {
+            int rk = lower_bound(vals.begin(), vals.end(), a[i]) - vals.begin() + 1;
+            root[i] = update(root[i - 1], 1, m, rk, a[i]);
+        }
+    }
+
+    // 查询区间 [L, R] 的第 k 小值，返回原始数值
+    int query_kth(int L, int R, int k)
+    {
+        int idx = kth(root[L - 1], root[R], 1, m, k);
+        return vals[idx - 1];
+    }
+
+    // 查询区间 [L, R] 中排名 <= k 的 {数量, 和}
+    // k 是排名 rank，不是原始值
+    pair<int, long long> query_rank_info(int L, int R, int k)
+    {
+        return query_cnt_sum(root[L - 1], root[R], 1, m, k);
+    }
+
+    // 查询排名 <= k 的 cnt 和 sum
+    pair<int, long long> query_cnt_sum(int ql, int qr, int l, int r, int k)
+    {
+        if (r <= k)
+        {
+            return {tree[qr].cnt - tree[ql].cnt, tree[qr].sum - tree[ql].sum};
+        }
+        int mid = (l + r) >> 1;
+        pair<int, long long> res = query_cnt_sum(tree[ql].l, tree[qr].l, l, mid, k);
+        if (k > mid)
+        {
+            pair<int, long long> res2 = query_cnt_sum(tree[ql].r, tree[qr].r, mid + 1, r, k);
+            res.first += res2.first;
+            res.second += res2.second;
+        }
+        return res;
+    }
+
+    int build(int l, int r)
+    {
+        int cur = ++cnt;
+        tree[cur].cnt = 0;
+        tree[cur].sum = 0;
+        if (l == r)
+            return cur;
+        int mid = (l + r) >> 1;
+        tree[cur].l = build(l, mid);
+        tree[cur].r = build(mid + 1, r);
+        return cur;
+    }
+
+    void pushup(int o)
+    {
+        tree[o].cnt = tree[tree[o].l].cnt + tree[tree[o].r].cnt;
+        tree[o].sum = tree[tree[o].l].sum + tree[tree[o].r].sum;
+    }
+
+    int update(int pre, int l, int r, int k, int val)
+    {
+        int cur = ++cnt;
+        if (cur >= tree.size())
+            tree.resize(tree.size() * 2);
+
+        tree[cur] = tree[pre];
+        if (l == r)
+        {
+            tree[cur].cnt++;
+            tree[cur].sum += val;
+            return cur;
+        }
+        int mid = (l + r) >> 1;
+        if (k <= mid)
+            tree[cur].l = update(tree[pre].l, l, mid, k, val);
+        else
+            tree[cur].r = update(tree[pre].r, mid + 1, r, k, val);
+        pushup(cur);
+        return cur;
+    }
+
+    int kth(int ql, int qr, int l, int r, int k)
+    {
+        if (l == r)
+            return l;
+        int left_cnt = tree[tree[qr].l].cnt - tree[tree[ql].l].cnt;
+        int mid = (l + r) >> 1;
+        if (k <= left_cnt)
+            return kth(tree[ql].l, tree[qr].l, l, mid, k);
+        else
+            return kth(tree[ql].r, tree[qr].r, mid + 1, r, k - left_cnt);
+    }
+};
 
 class ChairmanTree
 {
